@@ -16,12 +16,12 @@ from builtins import range, input
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from .kmeans import plot_k_means, get_simple_data
+from kmeans import plot_k_means, get_simple_data
 from datetime import datetime
 
 def get_data(limit=None):
     print("Reading in and transforming data...")
-    df = pd.read_csv('../large_files/train.csv')
+    df = pd.read_csv(r'C:\Users\Raphael\Downloads\machine_learning_examples\test\large_files\train.csv')
     data = df.values
     np.random.shuffle(data)
     X = data[:, 1:] / 255.0 # data is from 0..255
@@ -132,14 +132,15 @@ def DBI(X, M, R):
 
 def main():
     # mnist data
-    X, Y = get_data(10000)
+    X, Y = get_data(1000)
 
     # simple data
     # X = get_simple_data()
     # Y = np.array([0]*300 + [1]*300 + [2]*300)
 
     print("Number of data points:", len(Y))
-    M, R = plot_k_means(X, len(set(Y)))
+    K = len(set(Y))
+    M, R = plot_k_means(X, K)
     # Exercise: Try different values of K and compare the evaluation metrics
     print("Purity:", purity(Y, R))
     print("Purity 2 (hard clusters):", purity2(Y, R))

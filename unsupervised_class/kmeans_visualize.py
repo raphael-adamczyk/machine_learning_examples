@@ -34,7 +34,7 @@ def plot_k_means(X, K, max_iter=20, beta=1.0):
         M[k] = X[np.random.choice(N)]
 
     grid_width = 5
-    grid_height = max_iter / grid_width
+    grid_height = int(max_iter / grid_width)
     random_colors = np.random.random((K, 3))
     plt.figure()
 
