@@ -1,23 +1,30 @@
 import numpy as np
 import pandas as pd
 
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, Input
-from tensorflow.keras.optimizers import Adam
+# must do this BEFORE importing keras
+import os
+os.environ["KERAS_BACKEND"] = "jax"
+
+from keras.models import Model
+from keras.layers import Dense, Input
+from keras.optimizers import Adam
 
 from datetime import datetime
 import itertools
 import argparse
 import re
-import os
 import pickle
 
 from sklearn.preprocessing import StandardScaler
 
 
-import tensorflow as tf
+import keras.backend as K
+print("Using backend:", K.backend())
+
+# import tensorflow as tf
 # if tf.__version__.startswith('2'):
 #   tf.compat.v1.disable_eager_execution()
+
 
 
 # Let's use AAPL (Apple), MSI (Motorola), SBUX (Starbucks)
@@ -278,7 +285,7 @@ class DQNAgent(object):
     act_values = self.model.predict(state, verbose=0)
     return np.argmax(act_values[0])  # returns action
 
-  @tf.function
+
   def replay(self, batch_size=32):
     # first check if replay buffer contains enough data
     if self.memory.size < batch_size:

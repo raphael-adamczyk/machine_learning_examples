@@ -1,9 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, Input
-from tensorflow.keras.optimizers import Adam
+from sklearn.neural_network import MLPRegressor
+from sklearn.preprocessing import StandardScaler
 
 from datetime import datetime
 import itertools
@@ -11,13 +10,6 @@ import argparse
 import re
 import os
 import pickle
-
-from sklearn.preprocessing import StandardScaler
-
-
-import tensorflow as tf
-# if tf.__version__.startswith('2'):
-#   tf.compat.v1.disable_eager_execution()
 
 
 # Let's use AAPL (Apple), MSI (Motorola), SBUX (Starbucks)
@@ -92,22 +84,18 @@ def maybe_make_dir(directory):
 def mlp(input_dim, n_action, n_hidden_layers=1, hidden_dim=32):
   """ A multi-layer perceptron """
 
-  # input layer
-  i = Input(shape=(input_dim,))
-  x = i
+  model = MLPRegressor(
+    hidden_layer_sizes=n_hidden_layers * [hidden_dim],
+  )
 
-  # hidden layers
-  for _ in range(n_hidden_layers):
-    x = Dense(hidden_dim, activation='relu')(x)
-  
-  # final layer
-  x = Dense(n_action)(x)
+  # since we'll be first using this to make a prediction with random weights
+  # we need to know the output size
 
-  # make the model
-  model = Model(i, x)
+  # so we'll just start by fitting on some dummy data
+  X = np.random.randn(100, input_dim)
+  Y = np.random.randn(100, n_action)
+  model.partial_fit(X, Y)
 
-  model.compile(loss='mse', optimizer='adam')
-  print((model.summary()))
   return model
 
 
@@ -275,10 +263,9 @@ class DQNAgent(object):
   def act(self, state):
     if np.random.rand() <= self.epsilon:
       return np.random.choice(self.action_size)
-    act_values = self.model.predict(state, verbose=0)
+    act_values = self.model.predict(state)
     return np.argmax(act_values[0])  # returns action
 
-  @tf.function
   def replay(self, batch_size=32):
     # first check if replay buffer contains enough data
     if self.memory.size < batch_size:
@@ -293,7 +280,7 @@ class DQNAgent(object):
     done = minibatch['d']
 
     # Calculate the tentative target: Q(s',a)
-    target = rewards + (1 - done) * self.gamma * np.amax(self.model.predict(next_states, verbose=0), axis=1)
+    target = rewards + (1 - done) * self.gamma * np.amax(self.model.predict(next_states), axis=1)
 
     # With the Keras API, the target (usually) must have the same
     # shape as the predictions.
@@ -303,23 +290,24 @@ class DQNAgent(object):
     # the prediction for all values.
     # Then, only change the targets for the actions taken.
     # Q(s,a)
-    target_full = self.model.predict(states, verbose=0)
+    target_full = self.model.predict(states)
     target_full[np.arange(batch_size), actions] = target
 
     # Run one training step
-    self.model.train_on_batch(states, target_full)
+    self.model.partial_fit(states, target_full)
 
     if self.epsilon > self.epsilon_min:
       self.epsilon *= self.epsilon_decay
 
 
   def load(self, name):
-    self.model.load_weights(name)
+    with open(name, "rb") as f:
+      self.model = pickle.load(f)
 
 
   def save(self, name):
-    self.model.save_weights(name)
-
+    with open(name, "wb") as f:
+      pickle.dump(self.model, f)
 
 
 def play_one_episode(agent, env, is_train):
@@ -346,7 +334,6 @@ if __name__ == '__main__':
   # config
   models_folder = 'rl_trader_models'
   rewards_folder = 'rl_trader_rewards'
-  model_file = 'dqn.weights.h5'
   num_episodes = 2000
   batch_size = 32
   initial_investment = 20000
@@ -390,7 +377,7 @@ if __name__ == '__main__':
     agent.epsilon = 0.01
 
     # load trained weights
-    agent.load(f'{models_folder}/{model_file}')
+    agent.load(f'{models_folder}/mlp.pkl')
 
   # play the game num_episodes times
   for e in range(num_episodes):
@@ -403,7 +390,7 @@ if __name__ == '__main__':
   # save the weights when we are done
   if args.mode == 'train':
     # save the DQN
-    agent.save(f'{models_folder}/{model_file}')
+    agent.save(f'{models_folder}/mlp.pkl')
 
     # save the scaler
     with open(f'{models_folder}/scaler.pkl', 'wb') as f:
